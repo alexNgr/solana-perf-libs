@@ -17,7 +17,7 @@
 
 extern void ed25519_free_gpu_mem();
 
-bool g_verbose = false;
+//bool g_verbose = false;
 
 typedef struct {
     size_t size;
@@ -89,6 +89,74 @@ static void ed25519_free(void* ptr) {
     free(ptr);
 }
 
+typedef struct input_poh {
+
+    uint8_t* hashes;
+    uint64_t* num_hashes_arr;
+    size_t num_elems;
+
+} input_poh_cl;
+
+input_poh_cl* get_input(const char* file_hashes, const char* file_hashes_arr, const char* file_num_elems) {
+    
+    FILE * fp;
+    fp = fopen(file_hashes, "r");
+
+    if (fp == NULL) {
+        fprintf(stderr, "Could not open file %s\n", file_hashes);
+        exit(-1);
+    }
+
+    FILE * fp2;
+    fp2 = fopen(file_hashes_arr, "r");
+    
+    if (fp2 == NULL) {
+        fprintf(stderr, "Could not open file %s\n", file_hashes_arr);
+        exit(-1);
+    }
+
+    FILE * fp3;
+    fp3 = fopen(file_num_elems, "r");
+    
+    if (fp3 == NULL) {
+        fprintf(stderr, "Could not open file %s\n", file_num_elems);
+        exit(-1);
+    }
+
+    input_poh_cl* input_result = (input_poh_cl*)calloc(1, sizeof(input_poh_cl));
+
+    char messageError[100];
+    sprintf(messageError, "%s %s", "DIED while reading num_elems from file", file_num_elems);
+    DIE( 0 == fscanf(fp3, "%zu", &input_result->num_elems), "Error while reading num_elems from file");
+    fprintf(stderr, "num_elems read from file %s is %zu\n", file_num_elems, input_result->num_elems);
+
+    input_result->hashes = (uint8_t*)calloc(input_result->num_elems, sizeof(uint8_t));
+    input_result->num_hashes_arr = (uint64_t*)calloc(input_result->num_elems, sizeof(uint64_t));
+
+
+    for (size_t i=0; i<input_result->num_elems; ++i) {
+        char messageError[100];
+        sprintf(messageError, "%s %lu", "DIED while reading input hashes at index", i);
+        DIE( 0 == fscanf(fp, "%hhu", &input_result->hashes[i]), messageError);
+    }    
+
+    for (size_t i=0; i<input_result->num_elems; ++i) {  
+        char messageError[100];
+        sprintf(messageError, "%s %lu", "DIED while reading input hashes at index", i);
+        DIE( 0 == fscanf(fp2, "%lu", &input_result->num_hashes_arr[i]), messageError);
+    }
+
+    fclose(fp);
+    fclose(fp2);
+    fclose(fp3);
+
+    return input_result;
+}
+
+extern "C" {
+    extern int poh_verify_many(uint8_t*, const uint64_t*, size_t, uint8_t);
+}
+
 int main(int argc, const char* argv[]) {
     int arg;
     bool verbose = false;
@@ -99,6 +167,19 @@ int main(int argc, const char* argv[]) {
             break;
         }
     }
+
+    if (0 == strcmp("poh_verify_many", argv[1])) {
+        if (argc != 5) {
+            printf("usage: %s <file_num_hashes> <file_num_hashes_arr> <file_num_elems>\n", argv[0]);
+            printf("usage: argc is %i \n", argc);
+            return 1;
+        }
+
+        input_poh_cl* input_rez = get_input(argv[2], argv[3], argv[4]);
+        poh_verify_many(input_rez->hashes, input_rez->num_hashes_arr, input_rez->num_elems, 0);
+        return 0;
+    }
+
 
     if ((argc - arg) != 6) {
         printf("usage: %s [-v] <num_signatures> <num_elems> <num_sigs_per_packet> <num_threads> <num_iterations> <use_non_default_stream>\n", argv[0]);

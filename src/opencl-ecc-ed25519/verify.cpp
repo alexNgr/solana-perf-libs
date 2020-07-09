@@ -101,10 +101,10 @@ int ed25519_verify(const unsigned char *signature,
     return ed25519_verify_device(signature, message, message_len, public_key);
 }
 
-bool g_verbose = true;
+//bool g_verbose = true;
 
 void ed25519_set_verbose(bool val) {
-    g_verbose = val;
+    bool g_verbose = val;
 }
 
 void ed25519_verify_many(const gpu_Elems* elems,

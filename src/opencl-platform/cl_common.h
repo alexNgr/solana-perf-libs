@@ -16,9 +16,9 @@ using namespace std;
 #define __host__
 #endif
 
-extern bool g_verbose;
+//extern bool g_verbose;
 
-#define LOG(...) if (g_verbose) { printf(__VA_ARGS__); }
+#define LOG(...) if (true) { printf(__VA_ARGS__); }
 
 #define ROUND_UP_DIV(x, y) (((x) + (y) - 1) / (y))
 

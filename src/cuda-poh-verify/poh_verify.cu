@@ -35,6 +35,8 @@ typedef struct {
     cudaStream_t stream;
 } gpu_ctx;
 
+static size_t index_file=0;
+
 static pthread_mutex_t g_ctx_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static gpu_ctx g_gpu_ctx[MAX_NUM_GPUS][MAX_QUEUE_SIZE] = {0};
@@ -72,6 +74,84 @@ bool poh_init() {
     return success;
 }
 
+void save_input(uint8_t* hashes,
+    const uint64_t* num_hashes_arr,
+    size_t num_elems) {
+
+    FILE * fp;
+
+    char *file_name = "test_hashes";
+    char temp_string[20];
+    sprintf(temp_string, "%s_%zu", file_name, index_file);
+
+    //sprintf(temp_string, "%zu", num_elems);
+
+    fp = fopen (temp_string, "w");
+    if (fp == NULL) {
+        fprintf(stderr, "Could not create file %s\n",temp_string);
+        exit(-1);
+    }
+
+    FILE * fp2;
+
+    char *file_name2 = "test_num_hashes_arr";
+    char temp_string2[25];
+    sprintf(temp_string2, "%s_%zu", file_name2, index_file);
+    fp2 = fopen (temp_string2, "w");
+    if (fp2 == NULL) {
+        fprintf(stderr, "Could not create file %s\n", temp_string2);
+        exit(-2);
+    }
+
+    FILE * fp3;
+
+    char *file_name3 = "test_num_elems";
+    char temp_string3[25];
+    sprintf(temp_string3, "%s_%zu", file_name3, index_file);
+    fp3 = fopen (temp_string3, "w");
+    if (fp3 == NULL) {
+        fprintf(stderr, "Could not create file %s\n", file_name3);
+        exit(-3);
+    }
+
+    fprintf(fp3, "%lu", num_elems);
+    fclose(fp3);
+
+    for (size_t i = 0; i < num_elems; ++i) {
+        fprintf(fp, "%hhu ", hashes[i]);
+    }
+    fclose(fp);
+
+
+    for (size_t i = 0; i < num_elems; ++i) {
+        fprintf(fp2, "%lu ", num_hashes_arr[i]);
+    }
+    fclose(fp2);
+    index_file++;
+
+}
+
+void static inline save_out(uint8_t* hashes,
+    size_t num_elems) {
+
+    FILE * fp;
+
+    char *file_name = "test_hashes_output";
+    char temp_string[25];
+    sprintf(temp_string, "%s_%zu", file_name, index_file);
+
+    fp = fopen (temp_string, "w");
+    if (fp == NULL) {
+        fprintf(stderr, "Could not create file %s\n", temp_string);
+        exit(-1);
+    }
+
+    for (size_t i = 0; i < num_elems; ++i) {
+        fprintf(fp, "%hhu ", hashes[i]);
+    }
+    fclose(fp);
+}
+
 extern "C" {
 int poh_verify_many(uint8_t* hashes,
                     const uint64_t* num_hashes_arr,
@@ -79,6 +159,7 @@ int poh_verify_many(uint8_t* hashes,
                     uint8_t use_non_default_stream)
 {
     LOG("Starting poh_verify_many: num_elems: %zu\n", num_elems);
+    save_input(hashes, num_hashes_arr, num_elems);
 
     if (num_elems == 0) return 0;
 
@@ -134,7 +215,7 @@ int poh_verify_many(uint8_t* hashes,
     CUDA_CHK(cudaMemcpyAsync(hashes, cur_ctx->hashes, hashes_size, cudaMemcpyDeviceToHost, stream));
 
     CUDA_CHK(cudaStreamSynchronize(stream));
-
+    save_out(hashes, num_elems);
     pthread_mutex_unlock(&cur_ctx->mutex);
 
     return 0;

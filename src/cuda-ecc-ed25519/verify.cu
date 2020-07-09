@@ -178,10 +178,10 @@ __global__ void ed25519_verify_kernel(const uint8_t* packets,
     }
 }
 
-bool g_verbose = false;
+// bool g_verbose = false;
 
 void ed25519_set_verbose(bool val) {
-    g_verbose = val;
+   bool g_verbose = val;
 }
 
 void ed25519_verify_many(const gpu_Elems* elems,

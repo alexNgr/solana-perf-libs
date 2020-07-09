@@ -291,8 +291,13 @@ bool cl_check_init(void) {
             /* select device based on cli arguments */
             string tmpAttrData = attr_data;
             
+            if((dev == 0) && 
+                (platf == 1)) {
+                device = device_list[dev];
+                cout << "<----- SELECTED";
+            }
             // always select last device of type GPU
-            device = device_list[dev];
+            // device = device_list[dev];
 
             delete[] attr_data;
             cout << endl;
