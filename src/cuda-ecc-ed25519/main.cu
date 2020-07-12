@@ -93,6 +93,80 @@ static void ed25519_free(void* ptr) {
 
 }
 
+typedef struct input_poh {
+
+    uint8_t* hashes;
+    uint64_t* num_hashes_arr;
+    size_t num_elems;
+
+} input_poh_cuda;
+
+input_poh_cuda* get_input(const char* file_hashes, const char* file_hashes_arr, const char* file_num_elems) {
+    
+    FILE * fp;
+    fp = fopen(file_hashes, "r");
+
+    if (fp == NULL) {
+        fprintf(stderr, "Could not open file %s\n", file_hashes);
+        exit(-1);
+    }
+
+    FILE * fp2;
+    fp2 = fopen(file_hashes_arr, "r");
+    
+    if (fp2 == NULL) {
+        fprintf(stderr, "Could not open file %s\n", file_hashes_arr);
+        exit(-1);
+    }
+
+    FILE * fp3;
+    fp3 = fopen(file_num_elems, "r");
+    
+    if (fp3 == NULL) {
+        fprintf(stderr, "Could not open file %s\n", file_num_elems);
+        exit(-1);
+    }
+
+    input_poh_cuda* input_result = (input_poh_cuda*)calloc(1, sizeof(input_poh_cuda));
+
+    if( 0 == fscanf(fp3, "%zu", &input_result->num_elems)) {
+        fprintf(stderr, "Error while reading num_elems from file %s\n", file_num_elems);
+        exit(-2);
+    }
+    fprintf(stderr, "num_elems read from file %s is %zu\n", file_num_elems, input_result->num_elems);
+
+    input_result->hashes = (uint8_t*)calloc(input_result->num_elems *32, sizeof(uint8_t));
+    input_result->num_hashes_arr = (uint64_t*)calloc(input_result->num_elems, sizeof(uint64_t));
+
+
+    for (size_t i=0; i<input_result->num_elems*32*8; ++i) {
+        if( 0 == fscanf(fp, "%hhu", &input_result->hashes[i])) {
+            fprintf(stderr, "Error while reading hashes from file %s at index %lu \n", file_hashes, i);
+            exit(-2);
+        }
+    }    
+
+    for (size_t i=0; i<input_result->num_elems; ++i) {  
+        if( 0 == fscanf(fp2, "%lu", &input_result->num_hashes_arr[i])) {
+            fprintf(stderr, "Error while reading input num_hashes_arr from file %s at index %lu \n", file_hashes_arr, i);
+            exit(-2);
+        }
+    }
+
+    fclose(fp);
+    fclose(fp2);
+    fclose(fp3);
+
+    return input_result;
+}
+
+extern "C" {
+    int poh_verify_many(uint8_t* hashes,
+                        const uint64_t* num_hashes_arr,
+                        size_t num_elems,
+                        uint8_t use_non_default_stream);
+}
+
 int main(int argc, const char* argv[]) {
     int arg;
     bool verbose = false;
@@ -102,6 +176,18 @@ int main(int argc, const char* argv[]) {
         } else {
             break;
         }
+    }
+
+    if (0 == strcmp("poh_verify_many", argv[1])) {
+        if (argc != 5) {
+            printf("usage: %s <file_num_hashes> <file_num_hashes_arr> <file_num_elems>\n", argv[0]);
+            printf("usage: argc is %i \n", argc);
+            return 1;
+        }
+
+        input_poh_cuda* input_rez = get_input(argv[2], argv[3], argv[4]);
+        poh_verify_many(input_rez->hashes, input_rez->num_hashes_arr, input_rez->num_elems/(32*8), 0);
+        return 0;
     }
 
     if ((argc - arg) != 6) {

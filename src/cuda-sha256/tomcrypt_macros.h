@@ -470,7 +470,7 @@ int __device__ __host__ func_name (hash_state * md, const unsigned char *in, uns
     }                                                                                       \
     while (inlen > 0) {                                                                     \
         if (md-> state_var .curlen == 0 && inlen >= block_size) {                           \
-           if ((err = compress_name (md, in)) != CRYPT_OK) {                                \
+           if ((err = compress_name (md, in, 1)) != CRYPT_OK) {                                \
               return err;                                                                   \
            }                                                                                \
            md-> state_var .length += block_size * 8;                                        \
@@ -483,7 +483,7 @@ int __device__ __host__ func_name (hash_state * md, const unsigned char *in, uns
            in             += n;                                                             \
            inlen          -= n;                                                             \
            if (md-> state_var .curlen == block_size) {                                      \
-              if ((err = compress_name (md, md-> state_var .buf)) != CRYPT_OK) {            \
+              if ((err = compress_name (md, md-> state_var .buf, 1)) != CRYPT_OK) {            \
                  return err;                                                                \
               }                                                                             \
               md-> state_var .length += 8*block_size;                                       \

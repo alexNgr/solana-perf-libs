@@ -100,7 +100,7 @@ __global__ void init_sha256_state_kernel(hash_state* sha_state, uint32_t num_key
 __global__ void end_sha256_state_kernel(hash_state* sha_state, uint8_t* out_state, uint32_t num_keys) {
     size_t i = (size_t)(blockIdx.x * blockDim.x + threadIdx.x);
     if (i < num_keys) {
-        sha256_done(&sha_state[i], &out_state[i * SHA256_BLOCK_SIZE]);
+        sha256_done(&sha_state[i], &out_state[i * SHA256_BLOCK_SIZE], 0);
     }
 }
 

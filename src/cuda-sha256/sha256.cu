@@ -60,7 +60,7 @@ static const ulong32 K[64] = {
 #ifdef LTC_CLEAN_STACK
 static int _sha256_compress(hash_state * md, const unsigned char *buf)
 #else
-static int __host__ __device__ sha256_compress(hash_state * md, const unsigned char *buf)
+static int __host__ __device__ sha256_compress(hash_state * md, const unsigned char *buf, size_t idx)
 #endif
 {
     ulong32 S[8], W[64], t0, t1;
@@ -74,14 +74,160 @@ static int __host__ __device__ sha256_compress(hash_state * md, const unsigned c
         S[i] = md->sha256.state[i];
     }
 
+    if (idx == 0) {
+        printf(" inceput dupa copiere S[0] = %u\n", S[0]);
+        printf("S[1] = %u\n", S[1]);
+        printf("S[2] = %u\n", S[2]);
+        printf("S[3] = %u\n", S[3]);
+        printf("S[4] = %u\n", S[4]);
+        printf("S[5] = %u\n", S[5]);
+        printf("S[6] = %u\n", S[6]);
+        printf("S[7] = %u\n", S[7]);
+    }
+
     /* copy the state into 512-bits into W[0..15] */
     for (i = 0; i < 16; i++) {
         LOAD32H(W[i], buf + (4*i));
     }
 
+    if (idx == 0) {
+        printf("dupa copy state W[0] = %u\n", W[0]);
+        printf("W[1] = %u\n", W[1]);
+        printf("W[2] = %u\n", W[2]);
+        printf("W[3] = %u\n", W[3]);
+        printf("W[4] = %u\n", W[4]);
+        printf("W[5] = %u\n", W[5]);
+        printf("W[6] = %u\n", W[6]);
+        printf("W[7] = %u\n", W[7]);
+        printf("W[8] = %u\n", W[8]);
+        printf("W[9] = %u\n", W[9]);
+        printf("W[10] = %u\n", W[10]);
+        printf("W[11] = %u\n", W[11]);
+        printf("W[12] = %u\n", W[12]);
+        printf("W[13] = %u\n", W[13]);
+        printf("W[14] = %u\n", W[14]);
+        printf("W[15] = %u\n", W[15]);
+        printf("W[16] = %u\n", W[16]);
+        printf("W[17] = %u\n", W[17]);
+        printf("W[18] = %u\n", W[18]);
+        printf("W[19] = %u\n", W[19]);
+        printf("W[20] = %u\n", W[20]);
+        printf("W[21] = %u\n", W[21]);
+        printf("W[22] = %u\n", W[22]);
+        printf("W[23] = %u\n", W[23]);
+        printf("W[24] = %u\n", W[24]);
+        printf("W[25] = %u\n", W[25]);
+        printf("W[26] = %u\n", W[26]);
+        printf("W[27] = %u\n", W[27]);
+        printf("W[28] = %u\n", W[28]);
+        printf("W[29] = %u\n", W[29]);
+        printf("W[30] = %u\n", W[30]);
+        printf("W[31] = %u\n", W[31]);
+        printf("W[32] = %u\n", W[32]);
+        printf("W[33] = %u\n", W[33]);
+        printf("W[34] = %u\n", W[34]);
+        printf("W[35] = %u\n", W[35]);
+        printf("W[36] = %u\n", W[36]);
+        printf("W[37] = %u\n", W[37]);
+        printf("W[38] = %u\n", W[38]);
+        printf("W[39] = %u\n", W[39]);
+        printf("W[40] = %u\n", W[40]);
+        printf("W[41] = %u\n", W[41]);
+        printf("W[42] = %u\n", W[42]);
+        printf("W[43] = %u\n", W[43]);
+        printf("W[44] = %u\n", W[44]);
+        printf("W[45] = %u\n", W[45]);
+        printf("W[46] = %u\n", W[46]);
+        printf("W[47] = %u\n", W[47]);
+        printf("W[48] = %u\n", W[48]);
+        printf("W[49] = %u\n", W[49]);
+        printf("W[50] = %u\n", W[50]);
+        printf("W[51] = %u\n", W[51]);
+        printf("W[52] = %u\n", W[52]);
+        printf("W[53] = %u\n", W[53]);
+        printf("W[54] = %u\n", W[54]);
+        printf("W[55] = %u\n", W[55]);
+        printf("W[56] = %u\n", W[56]);
+        printf("W[57] = %u\n", W[57]);
+        printf("W[58] = %u\n", W[58]);
+        printf("W[59] = %u\n", W[59]);
+        printf("W[60] = %u\n", W[60]);
+        printf("W[61] = %u\n", W[61]);
+        printf("W[62] = %u\n", W[62]);
+        printf("W[63] = %u\n", W[63]);
+    }
+
+
     /* fill W[16..63] */
     for (i = 16; i < 64; i++) {
         W[i] = Gamma1(W[i - 2]) + W[i - 7] + Gamma0(W[i - 15]) + W[i - 16];
+    }
+
+    if (idx == 0) {
+        printf("dupa fill with Gamma1 W[0] = %u\n", W[0]);
+        printf("W[1] = %u\n", W[1]);
+        printf("W[2] = %u\n", W[2]);
+        printf("W[3] = %u\n", W[3]);
+        printf("W[4] = %u\n", W[4]);
+        printf("W[5] = %u\n", W[5]);
+        printf("W[6] = %u\n", W[6]);
+        printf("W[7] = %u\n", W[7]);
+        printf("W[8] = %u\n", W[8]);
+        printf("W[9] = %u\n", W[9]);
+        printf("W[10] = %u\n", W[10]);
+        printf("W[11] = %u\n", W[11]);
+        printf("W[12] = %u\n", W[12]);
+        printf("W[13] = %u\n", W[13]);
+        printf("W[14] = %u\n", W[14]);
+        printf("W[15] = %u\n", W[15]);
+        printf("W[16] = %u\n", W[16]);
+        printf("W[17] = %u\n", W[17]);
+        printf("W[18] = %u\n", W[18]);
+        printf("W[19] = %u\n", W[19]);
+        printf("W[20] = %u\n", W[20]);
+        printf("W[21] = %u\n", W[21]);
+        printf("W[22] = %u\n", W[22]);
+        printf("W[23] = %u\n", W[23]);
+        printf("W[24] = %u\n", W[24]);
+        printf("W[25] = %u\n", W[25]);
+        printf("W[26] = %u\n", W[26]);
+        printf("W[27] = %u\n", W[27]);
+        printf("W[28] = %u\n", W[28]);
+        printf("W[29] = %u\n", W[29]);
+        printf("W[30] = %u\n", W[30]);
+        printf("W[31] = %u\n", W[31]);
+        printf("W[32] = %u\n", W[32]);
+        printf("W[33] = %u\n", W[33]);
+        printf("W[34] = %u\n", W[34]);
+        printf("W[35] = %u\n", W[35]);
+        printf("W[36] = %u\n", W[36]);
+        printf("W[37] = %u\n", W[37]);
+        printf("W[38] = %u\n", W[38]);
+        printf("W[39] = %u\n", W[39]);
+        printf("W[40] = %u\n", W[40]);
+        printf("W[41] = %u\n", W[41]);
+        printf("W[42] = %u\n", W[42]);
+        printf("W[43] = %u\n", W[43]);
+        printf("W[44] = %u\n", W[44]);
+        printf("W[45] = %u\n", W[45]);
+        printf("W[46] = %u\n", W[46]);
+        printf("W[47] = %u\n", W[47]);
+        printf("W[48] = %u\n", W[48]);
+        printf("W[49] = %u\n", W[49]);
+        printf("W[50] = %u\n", W[50]);
+        printf("W[51] = %u\n", W[51]);
+        printf("W[52] = %u\n", W[52]);
+        printf("W[53] = %u\n", W[53]);
+        printf("W[54] = %u\n", W[54]);
+        printf("W[55] = %u\n", W[55]);
+        printf("W[56] = %u\n", W[56]);
+        printf("W[57] = %u\n", W[57]);
+        printf("W[58] = %u\n", W[58]);
+        printf("W[59] = %u\n", W[59]);
+        printf("W[60] = %u\n", W[60]);
+        printf("W[61] = %u\n", W[61]);
+        printf("W[62] = %u\n", W[62]);
+        printf("W[63] = %u\n", W[63]);
     }
 
     /* Compress */
@@ -91,7 +237,6 @@ static int __host__ __device__ sha256_compress(hash_state * md, const unsigned c
      t1 = Sigma0(a) + Maj(a, b, c);                    \
      d += t0;                                          \
      h  = t0 + t1;
-
      for (i = 0; i < 64; ++i) {
          RND(S[0],S[1],S[2],S[3],S[4],S[5],S[6],S[7],i);
          t = S[7]; S[7] = S[6]; S[6] = S[5]; S[5] = S[4];
@@ -103,7 +248,6 @@ static int __host__ __device__ sha256_compress(hash_state * md, const unsigned c
      t1 = Sigma0(a) + Maj(a, b, c);                  \
      d += t0;                                        \
      h  = t0 + t1;
-
     RND(S[0],S[1],S[2],S[3],S[4],S[5],S[6],S[7],0,0x428a2f98);
     RND(S[7],S[0],S[1],S[2],S[3],S[4],S[5],S[6],1,0x71374491);
     RND(S[6],S[7],S[0],S[1],S[2],S[3],S[4],S[5],2,0xb5c0fbcf);
@@ -172,11 +316,32 @@ static int __host__ __device__ sha256_compress(hash_state * md, const unsigned c
 #undef RND
 
 #endif
-
+    if (idx == 0) {
+        printf(" sfarsit dupa RNDS S[0] = %u\n", S[0]);
+        printf("S[1] = %u\n", S[1]);
+        printf("S[2] = %u\n", S[2]);
+        printf("S[3] = %u\n", S[3]);
+        printf("S[4] = %u\n", S[4]);
+        printf("S[5] = %u\n", S[5]);
+        printf("S[6] = %u\n", S[6]);
+        printf("S[7] = %u\n", S[7]);
+    }
     /* feedback */
     for (i = 0; i < 8; i++) {
         md->sha256.state[i] = md->sha256.state[i] + S[i];
     }
+
+    if (idx == 0) {
+        printf(" sfarsit dupa adunare sha256.state[0] = %u\n", md->sha256.state[0]);
+        printf(" sfarsit dupa adunare sha256.state[1] = %u\n", md->sha256.state[1]);
+        printf(" sfarsit dupa adunare sha256.state[2] = %u\n", md->sha256.state[2]);
+        printf(" sfarsit dupa adunare sha256.state[3] = %u\n", md->sha256.state[3]);
+        printf(" sfarsit dupa adunare sha256.state[4] = %u\n", md->sha256.state[4]);
+        printf(" sfarsit dupa adunare sha256.state[5] = %u\n", md->sha256.state[5]);
+        printf(" sfarsit dupa adunare sha256.state[6] = %u\n", md->sha256.state[6]);
+        printf(" sfarsit dupa adunare sha256.state[7] = %u\n", md->sha256.state[7]);
+    }
+
     return CRYPT_OK;
 }
 
@@ -227,7 +392,7 @@ inline HASH_PROCESS(sha256_process, sha256_compress, sha256, 64)
    @param out [out] The destination of the hash (32 bytes)
    @return CRYPT_OK if successful
 */
-inline int __host__ __device__ sha256_done(hash_state * md, unsigned char *out)
+inline int __host__ __device__ sha256_done(hash_state * md, unsigned char *out, size_t idx)
 {
     int i;
 
@@ -253,7 +418,7 @@ inline int __host__ __device__ sha256_done(hash_state * md, unsigned char *out)
         while (md->sha256.curlen < 64) {
             md->sha256.buf[md->sha256.curlen++] = (unsigned char)0;
         }
-        sha256_compress(md, md->sha256.buf);
+        sha256_compress(md, md->sha256.buf, idx);
         md->sha256.curlen = 0;
     }
 
@@ -264,7 +429,7 @@ inline int __host__ __device__ sha256_done(hash_state * md, unsigned char *out)
 
     /* store length */
     STORE64H(md->sha256.length, md->sha256.buf+56);
-    sha256_compress(md, md->sha256.buf);
+    sha256_compress(md, md->sha256.buf, idx);
 
     /* copy output */
     for (i = 0; i < 8; i++) {

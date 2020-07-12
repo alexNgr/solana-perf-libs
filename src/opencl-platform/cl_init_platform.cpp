@@ -292,7 +292,7 @@ bool cl_check_init(void) {
             string tmpAttrData = attr_data;
             
             if((dev == 0) && 
-                (platf == 1)) {
+                (platf == 0)) {
                 device = device_list[dev];
                 cout << "<----- SELECTED";
             }

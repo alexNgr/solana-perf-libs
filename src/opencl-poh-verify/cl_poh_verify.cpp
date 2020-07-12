@@ -82,15 +82,19 @@ void setup_gpu_ctx(gpu_ctx_t *cur_ctx,
     LOG("device allocate. num hashes: %lu nr_bytes_hashes in MB: %f nr_bytes_num_hashes_arr: %f\n",
         num_elems, (double)nr_bytes_hashes/(1024*1024), (double)nr_bytes_num_hashes_arr/(1024*1024));
 
-    clReleaseMemObject(cur_ctx->in_out_hashes);
-    cur_ctx->in_out_hashes = clCreateBuffer(context, CL_MEM_READ_WRITE, nr_bytes_hashes, NULL, &ret);
-    CL_ERR( ret );
+    if (cur_ctx->in_out_hashes == NULL || cur_ctx->in_num_elems < num_elems) {
+        clReleaseMemObject(cur_ctx->in_out_hashes);
+        cur_ctx->in_out_hashes = clCreateBuffer(context, CL_MEM_READ_WRITE, nr_bytes_hashes, NULL, &ret);
+        CL_ERR( ret );
+        cur_ctx->in_num_elems = num_elems;
+    }
 
-    clReleaseMemObject(cur_ctx->in_num_hashes_arr);
-    cur_ctx->in_num_hashes_arr = clCreateBuffer(context, CL_MEM_READ_ONLY, nr_bytes_num_hashes_arr, NULL, &ret);
-    CL_ERR( ret );
+    if (cur_ctx->in_num_hashes_arr == NULL || cur_ctx->in_num_elems < num_elems) {
+        clReleaseMemObject(cur_ctx->in_num_hashes_arr);
+        cur_ctx->in_num_hashes_arr = clCreateBuffer(context, CL_MEM_READ_ONLY, nr_bytes_num_hashes_arr, NULL, &ret);
+        CL_ERR( ret );
+    }
 
-    cur_ctx->in_num_elems = num_elems;
     CL_ERR( clEnqueueWriteBuffer(cmd_queue, cur_ctx->in_out_hashes, CL_TRUE, 0, nr_bytes_hashes, hashes, 0, NULL, NULL));
     CL_ERR( clEnqueueWriteBuffer(cmd_queue, cur_ctx->in_num_hashes_arr, CL_TRUE, 0, nr_bytes_num_hashes_arr, num_hashes_arr, 0, NULL, NULL));
 }
@@ -105,7 +109,7 @@ void static inline save_out(uint8_t* hashes,
     FILE * fp;
 
     char *file_name = "test_hashes_output_cl";
-    char temp_string[25];
+    char temp_string[35];
     sprintf(temp_string, "%s", file_name);
 
     fp = fopen (temp_string, "w");
@@ -114,7 +118,8 @@ void static inline save_out(uint8_t* hashes,
         exit(-1);
     }
 
-    for (size_t i = 0; i < num_elems; ++i) {
+    for (size_t i = 0; i < num_elems*32*8; ++i) {
+        //fprintf(stderr, "alexNNN inainte de inchidere %s writing hashes[%lu]=%hhu \n", file_name, i, hashes[i]);
         fprintf(fp, "%hhu ", hashes[i]);
     }
     fclose(fp);
@@ -141,7 +146,7 @@ int poh_verify_many(uint8_t* hashes,
     gpu_ctx_t *cur_ctx = get_gpu_ctx();
     pthread_mutex_unlock(&clg_ctx_mutex);
     
-    size_t nr_bytes_hashes = num_elems * sizeof(uint8_t);
+    size_t nr_bytes_hashes = num_elems * 32 * sizeof(uint8_t);
     size_t nr_bytes_num_hashes_arr = num_elems * sizeof(uint64_t);
     setup_gpu_ctx(cur_ctx,
                     hashes,
@@ -180,6 +185,8 @@ int poh_verify_many(uint8_t* hashes,
     if(ret != CL_SUCCESS) {
         fprintf(stderr, "ret is not CL_SUCCESS after NDRANGE\n");
     }
+
+    ret = clFinish(cmd_queue);
     if(ret != CL_SUCCESS) {
         fprintf(stderr, "ret is not CL_SUCCESS after clFinish\n");
     }        
@@ -190,7 +197,7 @@ int poh_verify_many(uint8_t* hashes,
 
     get_time(&end);
     LOG("time diff: %f\n", get_diff(&start, &end));
-
+    fprintf(stderr, "alexNNN\n");    
     save_out(hashes, num_elems);
     fprintf(stderr, "poh_verify_many not implemented.\n");
     release_gpu_ctx(cur_ctx);

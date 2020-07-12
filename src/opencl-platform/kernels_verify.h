@@ -517,7 +517,8 @@ void memcpy(char *dst, char *src, size_t n) {
 /* a simple macro for making hash "process" functions */
 #define HASH_PROCESS(func_name, compress_name, state_var, block_size)                       \
 int func_name (hash_state * md, const unsigned char *in, unsigned long inlen)               \
-{                                                                                           \
+{                                                                                           \ 
+    ulong32 SS[8], WW[64];                                                                                        \
     unsigned long n;                                                                        \
     int           err;                                                          \
     if (md-> state_var .curlen > sizeof(md-> state_var .buf)) {                             \
@@ -528,7 +529,7 @@ int func_name (hash_state * md, const unsigned char *in, unsigned long inlen)   
     }                                                                                       \
     while (inlen > 0) {                                                                     \
         if (md-> state_var .curlen == 0 && inlen >= block_size) {                           \
-           if ((err = compress_name (md, in)) != CRYPT_OK) {                                \
+           if ((err = compress_name (md, in, 1, SS, WW)) != CRYPT_OK) {                                \
               return err;                                                                   \
            }                                                                                \
            md-> state_var .length += block_size * 8;                                        \
@@ -541,7 +542,7 @@ int func_name (hash_state * md, const unsigned char *in, unsigned long inlen)   
            in             += n;                                                             \
            inlen          -= n;                                                             \
            if (md-> state_var .curlen == block_size) {                                      \
-              if ((err = compress_name (md, md-> state_var .buf)) != CRYPT_OK) {            \
+              if ((err = compress_name (md, md-> state_var .buf, 1, SS, WW)) != CRYPT_OK) {            \
                  return err;                                                                \
               }                                                                             \
               md-> state_var .length += 8*block_size;                                       \
@@ -604,15 +605,14 @@ static __constant ulong32 K[64] = {
 };
 #endif
 
-/* Various logical functions */
 #define Ch(x,y,z)       (z ^ (x & (y ^ z)))
 #define Maj(x,y,z)      (((x | y) & z) | (x & y))
-#define S(x, n)         ROR64c((x),(n))
-#define R(x, n)           (((((ulong)x) & ((ulong)0xFFFFFFFFFFFFFFFFUL))) >> ((ulong)n))
-#define Sigma0(x)       (S(x, 28) ^ S(x, 34) ^ S(x, 39))
-#define Sigma1(x)       (S(x, 14) ^ S(x, 18) ^ S(x, 41))
-#define Gamma0(x)       (S(x, 1) ^ S(x, 8) ^ R(x, 7))
-#define Gamma1(x)       (S(x, 19) ^ S(x, 61) ^ R(x, 6))
+#define S(x, n)         RORc((x),(n))
+#define R(x, n)         (((x)&0xFFFFFFFFUL)>>(n))
+#define Sigma0(x)       (S(x, 2) ^ S(x, 13) ^ S(x, 22))
+#define Sigma1(x)       (S(x, 6) ^ S(x, 11) ^ S(x, 25))
+#define Gamma0(x)       (S(x, 7) ^ S(x, 18) ^ R(x, 3))
+#define Gamma1(x)       (S(x, 17) ^ S(x, 19) ^ R(x, 10))
 #ifndef MIN
    #define MIN(x, y) ( ((x)<(y))?(x):(y) )
 #endif
@@ -621,7 +621,7 @@ static __constant ulong32 K[64] = {
 #ifdef LTC_CLEAN_STACK
 static int _sha256_compress(hash_state * md, const unsigned char *buf)
 #else
-static int sha256_compress(hash_state * md, const unsigned char *buf)
+static int sha256_compress(hash_state * md, const unsigned char *buf, size_t idx, ulong32 *rez_s, ulong32 *rez_w)
 #endif
 {
     ulong32 S[8], W[64], t0, t1;
@@ -635,14 +635,32 @@ static int sha256_compress(hash_state * md, const unsigned char *buf)
         S[i] = md->sha256.state[i];
     }
 
+    if (idx == 0) {
+        for (i = 0; i < 8; i++) {
+            rez_s[i] = S[i];
+        }
+    }
+
     /* copy the state into 512-bits into W[0..15] */
     for (i = 0; i < 16; i++) {
         LOAD32H(W[i], buf + (4*i));
     }
 
+    if (idx == 0) {
+        for (i = 0; i < 64; i++) {
+            rez_w[i] = W[i];
+        }
+    }
+
     /* fill W[16..63] */
     for (i = 16; i < 64; i++) {
-        W[i] += Gamma1(W[i - 2]) + W[i - 7] + Gamma0(W[i - 15]) + W[i - 16];
+        W[i] = Gamma1(W[i - 2]) + W[i - 7] + Gamma0(W[i - 15]) + W[i - 16];
+    }
+
+    if (idx == 0) {
+        for (i = 0; i < 64; i++) {
+            rez_w[i] = W[i];
+        }
     }
 
     /* Compress */
@@ -734,10 +752,14 @@ static int sha256_compress(hash_state * md, const unsigned char *buf)
 
 #endif
 
+
     /* feedback */
     for (i = 0; i < 8; i++) {
         md->sha256.state[i] = md->sha256.state[i] + S[i];
     }
+
+
+
     return CRYPT_OK;
 }
 
@@ -786,7 +808,7 @@ inline HASH_PROCESS(sha256_process, sha256_compress, sha256, 64)
    @param out [out] The destination of the hash (32 bytes)
    @return CRYPT_OK if successful
 */
-inline int sha256_done(hash_state * md, unsigned char *out)
+inline int sha256_done(hash_state * md, unsigned char *out, size_t idx, ulong32 *S, ulong32 *W)
 {
     int i;
 
@@ -809,7 +831,7 @@ inline int sha256_done(hash_state * md, unsigned char *out)
         while (md->sha256.curlen < 64) {
             md->sha256.buf[md->sha256.curlen++] = (unsigned char)0;
         }
-        sha256_compress(md, md->sha256.buf);
+        sha256_compress(md, md->sha256.buf, idx, S, W);
         md->sha256.curlen = 0;
     }
 
@@ -820,7 +842,7 @@ inline int sha256_done(hash_state * md, unsigned char *out)
 
     /* store length */
     STORE64H(md->sha256.length, md->sha256.buf+56);
-    sha256_compress(md, md->sha256.buf);
+    sha256_compress(md, md->sha256.buf, idx, S, W);
 
     /* copy output */
     for (i = 0; i < 8; i++) {
@@ -4266,19 +4288,190 @@ __kernel void poh_verify_kernel(__global uint8_t* hashes,
     for(int i = 0; i < SHA256_BLOCK_SIZE; i++) {
         hash[i] = hashes[idx * SHA256_BLOCK_SIZE + i];
     }
-    
+
+    if (idx == 0 ) {
+        printf("inceput hashes[0]= %u\n", hashes[0]);
+    }
+
+    if (idx == 0 ) {
+        printf("hashes[32] = %u\n", hashes[32]);
+        printf("inceput hash[32]= %u\n", hash[32]);
+    }
 
     for (size_t i = 0; i < num_hashes_arr[idx]; i++) {
         hash_state sha_state;
         sha256_init(&sha_state);
+        if (idx == 0 && (i == 0 || i == 1)) {
+            printf("sha_state.curlen = %u\n", sha_state.sha256.curlen);
+            printf("sha_state.length = %lu\n", sha_state.sha256.length); 
+            printf("sha_state.state[0] = %u\n", sha_state.sha256.state[0]);
+            printf("sha_state.state[1] = %u\n", sha_state.sha256.state[1]);
+            printf("sha_state.state[2] = %u\n", sha_state.sha256.state[2]);
+            printf("sha_state.state[3] = %u\n", sha_state.sha256.state[3]);
+            printf("sha_state.state[4] = %u\n", sha_state.sha256.state[4]);
+            printf("sha_state.state[5] = %u\n", sha_state.sha256.state[5]);
+            printf("sha_state.state[6] = %u\n", sha_state.sha256.state[6]);
+            printf("sha_state.state[7] = %u\n", sha_state.sha256.state[7]);
+        }
         sha256_process(&sha_state, hash, SHA256_BLOCK_SIZE);
-        sha256_done(&sha_state, hash);
+        if (idx == 0 && ((i == 0 || i == 1))) {
+            printf("dupa sha256_process hash[0]= %u\n", hash[0]);
+            printf("dupa sha256_process hash[1]= %u\n", hash[1]);
+            printf("dupa sha256_process hash[2]= %u\n", hash[2]);
+            printf("dupa sha256_process hash[3]= %u\n", hash[3]);
+            printf("dupa sha256_process hash[4]= %u\n", hash[4]);
+            printf("dupa sha256_process hash[5]= %u\n", hash[5]);
+            printf("dupa sha256_process hash[6]= %u\n", hash[6]);
+            printf("dupa sha256_process hash[7]= %u\n", hash[7]);
+            printf("dupa sha256_process hash[8]= %u\n", hash[8]);
+            printf("dupa sha256_process hash[9]= %u\n", hash[9]);
+            printf("dupa sha256_process hash[10]= %u\n", hash[10]);
+            printf("dupa sha256_process hash[11]= %u\n", hash[11]);
+            printf("dupa sha256_process hash[12]= %u\n", hash[12]);
+            printf("dupa sha256_process hash[13]= %u\n", hash[13]);
+            printf("dupa sha256_process hash[14]= %u\n", hash[14]);
+            printf("dupa sha256_process hash[15]= %u\n", hash[15]);
+            printf("dupa sha256_process hash[16]= %u\n", hash[16]);
+            printf("dupa sha256_process hash[17]= %u\n", hash[17]);
+            printf("dupa sha256_process hash[18]= %u\n", hash[18]);
+            printf("dupa sha256_process hash[19]= %u\n", hash[19]);
+            printf("dupa sha256_process hash[20]= %u\n", hash[20]);
+            printf("dupa sha256_process hash[21]= %u\n", hash[21]);
+            printf("dupa sha256_process hash[22]= %u\n", hash[22]);
+            printf("dupa sha256_process hash[23]= %u\n", hash[23]);
+            printf("dupa sha256_process hash[24]= %u\n", hash[24]);
+            printf("dupa sha256_process hash[25]= %u\n", hash[25]);
+            printf("dupa sha256_process hash[26]= %u\n", hash[26]);
+            printf("dupa sha256_process hash[27]= %u\n", hash[27]);
+            printf("dupa sha256_process hash[28]= %u\n", hash[28]);
+            printf("dupa sha256_process hash[29]= %u\n", hash[29]);
+            printf("dupa sha256_process hash[30]= %u\n", hash[30]);
+            printf("dupa sha256_process hash[31]= %u\n", hash[31]);
+        }
+
+        ulong32 S[8], W[64];
+        if ( i == 0 && idx == 0) {  
+            sha256_done(&sha_state, hash, idx, S, W);
+            printf(" inceput dupa copiere S[0] = %u\n", S[0]);
+            printf("S[1] = %u\n", S[1]);
+            printf("S[2] = %u\n", S[2]);
+            printf("S[3] = %u\n", S[3]);
+            printf("S[4] = %u\n", S[4]);
+            printf("S[5] = %u\n", S[5]);
+            printf("S[6] = %u\n", S[6]);
+            printf("S[7] = %u\n", S[7]);
+
+            printf("dupa copy state W[0] = %u\n", W[0]);
+            printf("W[1] = %u\n", W[1]);
+            printf("W[2] = %u\n", W[2]);
+            printf("W[3] = %u\n", W[3]);
+            printf("W[4] = %u\n", W[4]);
+            printf("W[5] = %u\n", W[5]);
+            printf("W[6] = %u\n", W[6]);
+            printf("W[7] = %u\n", W[7]);
+            printf("W[8] = %u\n", W[8]);
+            printf("W[9] = %u\n", W[9]);
+            printf("W[10] = %u\n", W[10]);
+            printf("W[11] = %u\n", W[11]);
+            printf("W[12] = %u\n", W[12]);
+            printf("W[13] = %u\n", W[13]);
+            printf("W[14] = %u\n", W[14]);
+            printf("W[15] = %u\n", W[15]);
+            printf("W[16] = %u\n", W[16]);
+            printf("W[17] = %u\n", W[17]);
+            printf("W[18] = %u\n", W[18]);
+            printf("W[19] = %u\n", W[19]);
+            printf("W[20] = %u\n", W[20]);
+            printf("W[21] = %u\n", W[21]);
+            printf("W[22] = %u\n", W[22]);
+            printf("W[23] = %u\n", W[23]);
+            printf("W[24] = %u\n", W[24]);
+            printf("W[25] = %u\n", W[25]);
+            printf("W[26] = %u\n", W[26]);
+            printf("W[27] = %u\n", W[27]);
+            printf("W[28] = %u\n", W[28]);
+            printf("W[29] = %u\n", W[29]);
+            printf("W[30] = %u\n", W[30]);
+            printf("W[31] = %u\n", W[31]);
+            printf("W[32] = %u\n", W[32]);
+            printf("W[33] = %u\n", W[33]);
+            printf("W[34] = %u\n", W[34]);
+            printf("W[35] = %u\n", W[35]);
+            printf("W[36] = %u\n", W[36]);
+            printf("W[37] = %u\n", W[37]);
+            printf("W[38] = %u\n", W[38]);
+            printf("W[39] = %u\n", W[39]);
+            printf("W[40] = %u\n", W[40]);
+            printf("W[41] = %u\n", W[41]);
+            printf("W[42] = %u\n", W[42]);
+            printf("W[43] = %u\n", W[43]);
+            printf("W[44] = %u\n", W[44]);
+            printf("W[45] = %u\n", W[45]);
+            printf("W[46] = %u\n", W[46]);
+            printf("W[47] = %u\n", W[47]);
+            printf("W[48] = %u\n", W[48]);
+            printf("W[49] = %u\n", W[49]);
+            printf("W[50] = %u\n", W[50]);
+            printf("W[51] = %u\n", W[51]);
+            printf("W[52] = %u\n", W[52]);
+            printf("W[53] = %u\n", W[53]);
+            printf("W[54] = %u\n", W[54]);
+            printf("W[55] = %u\n", W[55]);
+            printf("W[56] = %u\n", W[56]);
+            printf("W[57] = %u\n", W[57]);
+            printf("W[58] = %u\n", W[58]);
+            printf("W[59] = %u\n", W[59]);
+            printf("W[60] = %u\n", W[60]);
+            printf("W[61] = %u\n", W[61]);
+            printf("W[62] = %u\n", W[62]);
+            printf("W[63] = %u\n", W[63]);
+        }   
+        else 
+            sha256_done(&sha_state, hash, 9, S, W);
+
+        if (idx == 0 && (i == 0 || i == 1)) {
+            printf("dupa sha256_done hash[0]= %u\n", hash[0]);
+            printf("dupa sha256_done hash[1]= %u\n", hash[1]);
+            printf("dupa sha256_done hash[2]= %u\n", hash[2]);
+            printf("dupa sha256_done hash[3]= %u\n", hash[3]);
+            printf("dupa sha256_done hash[4]= %u\n", hash[4]);
+            printf("dupa sha256_done hash[5]= %u\n", hash[5]);
+            printf("dupa sha256_done hash[6]= %u\n", hash[6]);
+            printf("dupa sha256_done hash[7]= %u\n", hash[7]);
+            printf("dupa sha256_done hash[8]= %u\n", hash[8]);
+            printf("dupa sha256_done hash[9]= %u\n", hash[9]);
+            printf("dupa sha256_done hash[10]= %u\n", hash[10]);
+            printf("dupa sha256_done hash[11]= %u\n", hash[11]);
+            printf("dupa sha256_done hash[12]= %u\n", hash[12]);
+            printf("dupa sha256_done hash[13]= %u\n", hash[13]);
+            printf("dupa sha256_done hash[14]= %u\n", hash[14]);
+            printf("dupa sha256_done hash[15]= %u\n", hash[15]);
+            printf("dupa sha256_done hash[16]= %u\n", hash[16]);
+            printf("dupa sha256_done hash[17]= %u\n", hash[17]);
+            printf("dupa sha256_done hash[18]= %u\n", hash[18]);
+            printf("dupa sha256_done hash[19]= %u\n", hash[19]);
+            printf("dupa sha256_done hash[20]= %u\n", hash[20]);
+            printf("dupa sha256_done hash[21]= %u\n", hash[21]);
+            printf("dupa sha256_done hash[22]= %u\n", hash[22]);
+            printf("dupa sha256_done hash[23]= %u\n", hash[23]);
+            printf("dupa sha256_done hash[24]= %u\n", hash[24]);
+            printf("dupa sha256_done hash[25]= %u\n", hash[25]);
+            printf("dupa sha256_done hash[26]= %u\n", hash[26]);
+            printf("dupa sha256_done hash[27]= %u\n", hash[27]);
+            printf("dupa sha256_done hash[28]= %u\n", hash[28]);
+            printf("dupa sha256_done hash[29]= %u\n", hash[29]);
+            printf("dupa sha256_done hash[30]= %u\n", hash[30]);
+            printf("dupa sha256_done hash[31]= %u\n", hash[31]);
+        }
     }
 
     //memcpy(&hashes[idx * SHA256_BLOCK_SIZE], hash, SHA256_BLOCK_SIZE);
     for(int i = 0; i < SHA256_BLOCK_SIZE; i++) {
         hashes[idx * SHA256_BLOCK_SIZE + i] = hash[i];
     }
+    if (idx == 0 ) {
+       printf("sfarsit aici hash[0] = %u\n", hashes[idx]);
+    } 
 }
 
 )"""";

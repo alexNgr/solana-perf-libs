@@ -176,7 +176,7 @@ int main(int argc, const char* argv[]) {
         }
 
         input_poh_cl* input_rez = get_input(argv[2], argv[3], argv[4]);
-        poh_verify_many(input_rez->hashes, input_rez->num_hashes_arr, input_rez->num_elems, 0);
+        poh_verify_many(input_rez->hashes, input_rez->num_hashes_arr, input_rez->num_elems/(32 * 8), 0);
         return 0;
     }
 
